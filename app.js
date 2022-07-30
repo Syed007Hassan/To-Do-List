@@ -7,7 +7,7 @@ const date = require(__dirname + "/date.js");
 const app = express();
 
 // GLOBAL VARIABLE DEFINED
-const items = ["Write Code","Debug Code"];
+const items = [];
 const workItems =[];
 
 app.use(bodyParser.urlencoded({ extended: true }));
