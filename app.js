@@ -1,75 +1,210 @@
 const bodyParser = require("body-parser");
 const express = require("express");
+const mongoose = require("mongoose");
+const _ = require("lodash");
+
+let item;
+
+//connect to MongoDB by specifying port to access MongoDB server
+main().catch((err) => console.log(err));
+
+//creating a todolistDB after / localhost
+async function main() {
+  await mongoose.connect("mongodb://localhost:27017/todolistDB");
+  console.log("DB Server is up and running");
+}
+
+//schema -> model -> document -> save
+
+// SCHEMA
+const itemsSchema = new mongoose.Schema({
+  name: String,
+});
+
+// MODEL: used for queries, will be displayed as items in mongo collections
+const Item = mongoose.model("Item", itemsSchema);
+
+// DOCUMENTS
+const item1 = new Item({
+  name: "WELCOME TO YOUR TO DO LIST!",
+});
+
+// Schema
+const listSchema = new mongoose.Schema({
+  name: String,
+  items: [itemsSchema],
+});
+
+//Model: : another one for queries, will be displayed as lists in mongo collections
+const List = mongoose.model("List", listSchema);
+
+//defaultItems for adding to null db
+const defaultItems = [item1];
 
 // REQUIRING OUR LOCAL MODULE FROM date.js
 const date = require(__dirname + "/date.js");
+// DATE MODULE SAVED IN DAY AND CALLING GETDATE()
+const day = date.getDate();
 
 const app = express();
-
-// GLOBAL VARIABLE DEFINED
-const items = [];
-const workItems =[];
-
 app.use(bodyParser.urlencoded({ extended: true }));
-
 app.use(express.static("public"));
 
-
 //EJS FOR USING TEMPLATES (TO AVOID MAKING MANY HTML FILES)
-app.set('view engine', 'ejs');
+app.set("view engine", "ejs");
+
 
 app.get("/", function (req, res) {
-  
-  // DATE MODULE SAVED IN DAY AND CALLING GETDATE()
-  const day = date.getDate();
+  Item.find({}, function (err, foundItems) {
+    //  checking to see if the DB is empty then add defaultItems
+    // if(foundItems.length === 0){
 
-  //RENDERING LIST.EJS FILE WHERE THE VARIABLE 'ListTitle' GETS CHANGED ON THE BASIS OF day
-  res.render("list", {ListTitle: day, newListItems: items});
-  
-}); 
+    //   Item.insertMany(defaultItems, function(err){
 
-app.post("/",function(req,res){
-   
-  const item = req.body.newItems;
+    //     if(err){
+    //     console.log(err);
+    //    }
+    //    else{
+    //    console.log("Successfully saved the items to list");
+    //        }
+
+    //  });
+    //     res.redirect("/");
+    // }
+    // else{
+
+    //RENDERING LIST.EJS FILE WHERE THE VARIABLE 'ListTitle' GETS CHANGED ON THE BASIS OF day
+    res.render("list", { ListTitle: day, newListItems: foundItems });
+    
+  });
+});
+
+
+//for custom links
+app.get("/:customListName", function (req, res) {
+  //req.params for getting different routes
+  const customListName =  _.capitalize(req.params.customListName);
+
+  //first it will find the already existed list on that customListName route
+  List.findOne({ name: customListName }, function (err, foundList) {
+    if (!err) {
+      if (!foundList) {
+        //if not found create the list and save
+        const list = new List({
+          name: customListName,
+          items: defaultItems,
+        });
+
+        list.save();
+
+        res.redirect("/" + customListName);
+      } else {
+        //if found show/render the list
+        res.render("list", {
+          ListTitle: foundList.name,
+          newListItems: foundList.items,
+        });
+      }
+    }
+  });
+});
+
+//post request of adding into the list
+app.post("/", function (req, res) {
+  const itemName = req.body.newItems;
+  const listName = req.body.list;
   
-  //IF THE ITEM BELONGS TO WORK/TITLE AS HOME ROUTE SO PUSH IN RESPECTIVE ARRAYS
-  
-  if(req.body.list === "Work"){
-    workItems.push(item);
-    res.redirect("/work");
-  }
-   else{
-    items.push(item);
+  //if the listName belongs to day then add to day list and redirect
+  item = new Item({
+    name: itemName,
+  });
+
+  if (
+    listName === "Tuesday," ||
+    listName === "Wednesday," ||
+    listName === "Thursday," ||
+    listName === "Friday," ||
+    listName === "Saturday," ||
+    listName === "Sunday," ||
+    listName === "Monday,"
+  )
+   {
+    item.save();
     res.redirect("/");
-   }
+  }
+  //if the listName belongs to any custom one then add to custom list and redirect
+  else{
+   
+      List.findOne({name: listName}, function(err,foundList){
+       
+         foundList.items.push(item);
+         foundList.save();
+         res.redirect("/" + listName);
+ 
+      });
+     
+  }
 
 });
 
 //  Handling remove post request
-app.post("/remove",function(req,res){
+app.post("/remove", function (req, res) {
+  const itemName = req.body.newItems;
+  const listName = req.body.Removebutton;
   
-  //IF THE ITEM BELONGS TO WORK/TITLE AS HOME ROUTE SO POP IN RESPECTIVE ARRAYS
+  let foundItem;
+  
+  //if home "/" route with title as day then find and delete from Item
+  if (
+    listName === "Tuesday," ||
+    listName === "Wednesday," ||
+    listName === "Thursday," ||
+    listName === "Friday," ||
+    listName === "Saturday," ||
+    listName === "Sunday," ||
+    listName === "Monday,"
+  ){
 
-  if(req.body.Removebutton === "Work"){
-    workItems.pop();
-    res.redirect("/work");
+      // traverse the DB to the end and store the last element in foundItem
+      Item.find(function (err, itemFind) {
+        if (err) {
+          console.log(err);
+        } else {
+          itemFind.forEach((element) => {
+            foundItem = element.name;
+          });
+        }
+    
+        //Then delete the stored item in foundItem
+        Item.deleteOne({ name: foundItem }, function (err) {
+          if (err) {
+            console.log(err);
+          } else {
+            console.log("Successfully Deleted");
+          }
+        });
+          res.redirect("/");
+        
+      });
+
   }
-   else{
-    items.pop();
-    res.redirect("/");
-   }
- 
-});
 
-app.get("/work",function(req,res){
+  //if other then home route then find and delete from List
+   else{
+
+    List.findOne({name: listName}, function(err,foundList){
+       
+      foundList.items.pop(item);
+      foundList.save();
+      res.redirect("/" + listName);
   
-  //RENDERING LIST.EJS FILE WHERE THE VARIABLE 'ListTitle' GETS CHANGED ON THE BASIS OF Work List
-  res.render("list", {ListTitle: "Work List", newListItems: workItems});
+   });
+
+      }
 
 });
 
 
 app.listen(3000, function (req, res) {
-  console.log("Server has been started and running");
+  console.log("Node Server has been started and running");
 });
-
