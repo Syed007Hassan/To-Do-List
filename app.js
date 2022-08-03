@@ -204,7 +204,11 @@ app.post("/remove", function (req, res) {
 
 });
 
+let port = process.env.PORT;
+if (port == null || port == "") {
+  port = 3000;
+}
 
-app.listen(3000, function (req, res) {
-  console.log("Node Server has been started and running");
+app.listen(port, function (req, res) {
+  console.log("Server has been started and running");
 });
