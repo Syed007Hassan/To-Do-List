@@ -10,7 +10,7 @@ main().catch((err) => console.log(err));
 
 //creating a todolistDB after / localhost
 async function main() {
-  await mongoose.connect("mongodb://localhost:27017/todolistDB");
+  await mongoose.connect("mongodb+srv://admin-hassan:k201052hassan@cluster0.yipmq.mongodb.net/todolistDB");
   console.log("DB Server is up and running");
 }
 
