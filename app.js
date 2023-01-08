@@ -2,6 +2,7 @@ const bodyParser = require("body-parser");
 const express = require("express");
 const mongoose = require("mongoose");
 const _ = require("lodash");
+require("dotenv").config();
 
 let item;
 
@@ -10,7 +11,11 @@ main().catch((err) => console.log(err));
 
 //creating a todolistDB after / localhost
 async function main() {
-  await mongoose.connect("mongodb+srv://admin-hassan:<password>@cluster0.yipmq.mongodb.net/todolistDB");
+  await mongoose.connect(
+    "mongodb+srv://admin-hassan:" +
+      process.env.MONGOATLASPASWORD +
+      "@cluster0.yipmq.mongodb.net/todolistDB"
+  );
   console.log("DB Server is up and running");
 }
 
@@ -53,7 +58,6 @@ app.use(express.static("public"));
 //EJS FOR USING TEMPLATES (TO AVOID MAKING MANY HTML FILES)
 app.set("view engine", "ejs");
 
-
 app.get("/", function (req, res) {
   Item.find({}, function (err, foundItems) {
     //  checking to see if the DB is empty then add defaultItems
@@ -75,15 +79,13 @@ app.get("/", function (req, res) {
 
     //RENDERING LIST.EJS FILE WHERE THE VARIABLE 'ListTitle' GETS CHANGED ON THE BASIS OF day
     res.render("list", { ListTitle: day, newListItems: foundItems });
-    
   });
 });
-
 
 //for custom links
 app.get("/:customListName", function (req, res) {
   //req.params for getting different routes
-  const customListName =  _.capitalize(req.params.customListName);
+  const customListName = _.capitalize(req.params.customListName);
 
   //first it will find the already existed list on that customListName route
   List.findOne({ name: customListName }, function (err, foundList) {
@@ -113,7 +115,7 @@ app.get("/:customListName", function (req, res) {
 app.post("/", function (req, res) {
   const itemName = req.body.newItems;
   const listName = req.body.list;
-  
+
   //if the listName belongs to day then add to day list and redirect
   item = new Item({
     name: itemName,
@@ -127,33 +129,27 @@ app.post("/", function (req, res) {
     listName === "Saturday," ||
     listName === "Sunday," ||
     listName === "Monday,"
-  )
-   {
+  ) {
     item.save();
     res.redirect("/");
   }
   //if the listName belongs to any custom one then add to custom list and redirect
-  else{
-   
-      List.findOne({name: listName}, function(err,foundList){
-       
-         foundList.items.push(item);
-         foundList.save();
-         res.redirect("/" + listName);
- 
-      });
-     
+  else {
+    List.findOne({ name: listName }, function (err, foundList) {
+      foundList.items.push(item);
+      foundList.save();
+      res.redirect("/" + listName);
+    });
   }
-
 });
 
 //  Handling remove post request
 app.post("/remove", function (req, res) {
   const itemName = req.body.newItems;
   const listName = req.body.Removebutton;
-  
+
   let foundItem;
-  
+
   //if home "/" route with title as day then find and delete from Item
   if (
     listName === "Tuesday," ||
@@ -163,45 +159,37 @@ app.post("/remove", function (req, res) {
     listName === "Saturday," ||
     listName === "Sunday," ||
     listName === "Monday,"
-  ){
+  ) {
+    // traverse the DB to the end and store the last element in foundItem
+    Item.find(function (err, itemFind) {
+      if (err) {
+        console.log(err);
+      } else {
+        itemFind.forEach((element) => {
+          foundItem = element.name;
+        });
+      }
 
-      // traverse the DB to the end and store the last element in foundItem
-      Item.find(function (err, itemFind) {
+      //Then delete the stored item in foundItem
+      Item.deleteOne({ name: foundItem }, function (err) {
         if (err) {
           console.log(err);
         } else {
-          itemFind.forEach((element) => {
-            foundItem = element.name;
-          });
+          console.log("Successfully Deleted");
         }
-    
-        //Then delete the stored item in foundItem
-        Item.deleteOne({ name: foundItem }, function (err) {
-          if (err) {
-            console.log(err);
-          } else {
-            console.log("Successfully Deleted");
-          }
-        });
-          res.redirect("/");
-        
       });
-
+      res.redirect("/");
+    });
   }
 
   //if other then home route then find and delete from List
-   else{
-
-    List.findOne({name: listName}, function(err,foundList){
-       
+  else {
+    List.findOne({ name: listName }, function (err, foundList) {
       foundList.items.pop(item);
       foundList.save();
       res.redirect("/" + listName);
-  
-   });
-
-      }
-
+    });
+  }
 });
 
 let port = process.env.PORT;
